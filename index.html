@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Questrade Portfolio Viewer</title>
+  <style>
+    :root{
+      --bg:#0b1220; --card:#121a2b; --muted:#8aa0c2; --text:#e8eefc; --accent:#5ae0b5; --danger:#ff6b6b; --warn:#ffd166;
+      --br:16px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; background:linear-gradient(180deg,#0a0f1b,#0b1220 25% 75%,#0a0f1b); color:var(--text);}
+    header{padding:28px 20px 12px; text-align:center}
+    header h1{margin:0 0 6px; font-weight:800; letter-spacing:.2px}
+    header p{margin:0; color:var(--muted)}
+    main{max-width:980px; margin:24px auto 60px; padding:0 20px}
+
+    .card{background:var(--card); border:1px solid #1a2740; border-radius:var(--br); box-shadow:0 10px 30px rgba(0,0,0,.35);}
+    .row{display:flex; flex-wrap:wrap; gap:14px}
+
+    .controls{padding:18px; display:grid; grid-template-columns:1.2fr .6fr auto; gap:12px; align-items:end; border-bottom:1px solid #213152;}
+    .controls .field{display:flex; flex-direction:column; gap:6px}
+    .controls label{font-size:.9rem; color:var(--muted)}
+    .controls input[type="password"], .controls input[type="text"], .controls select{
+      background:#0e1627; color:var(--text); border:1px solid #243457; border-radius:10px; padding:10px 12px; outline:none;
+    }
+    .controls .hints{grid-column:1/-1; display:flex; gap:18px; align-items:center; justify-content:space-between; color:var(--muted); font-size:.9rem}
+    .controls .hints .left{display:flex; gap:14px; align-items:center}
+    .controls .hints label.inline{display:flex; gap:8px; align-items:center}
+
+    button.primary{background:var(--accent); color:#0b1220; font-weight:700; border:none; border-radius:12px; padding:10px 16px; cursor:pointer; transition:transform .05s ease, box-shadow .2s ease}
+    button.primary:active{transform:translateY(1px)}
+    button.secondary{background:#1a2740; color:var(--text); border:1px solid #243457; border-radius:10px; padding:10px 12px; cursor:pointer}
+
+    .status{padding:14px 18px; display:flex; align-items:center; gap:10px}
+    .status .dot{width:10px; height:10px; border-radius:50%}
+    .dot.idle{background:#345}
+    .dot.loading{background:var(--warn)}
+    .dot.ok{background:var(--accent)}
+    .dot.err{background:var(--danger)}
+
+    .table-wrap{padding:0 18px 18px}
+    table{width:100%; border-collapse:separate; border-spacing:0 8px}
+    thead th{color:var(--muted); font-weight:600; text-align:left; padding:10px 12px}
+    tbody tr{background:#0f1730; border:1px solid #1e2e52}
+    tbody td{padding:12px}
+    tbody tr{border-radius:12px; overflow:hidden}
+    tbody tr td:first-child{border-top-left-radius:12px; border-bottom-left-radius:12px}
+    tbody tr td:last-child{border-top-right-radius:12px; border-bottom-right-radius:12px}
+
+    .mono{font-variant-numeric:tabular-nums; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .muted{color:var(--muted)}
+    .right{text-align:right}
+
+    .totals{margin-top:8px; display:flex; justify-content:flex-end; gap:24px; align-items:center; padding:0 18px 18px}
+    .totals .pill{background:#101a33; border:1px solid #20325a; padding:10px 14px; border-radius:999px}
+    .note{margin-top:16px; color:var(--muted); font-size:.9rem; padding:0 18px 18px}
+    .error{color:#ffd9d9}
+    .success{color:#bdf6e3}
+    .code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0a1326; padding:2px 6px; border-radius:6px; border:1px solid #1b2850}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Questrade Portfolio Viewer</h1>
+    <p>Enter your <strong>refresh token</strong>, click <em>Update</em>, and view balances across all accounts.</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="controls">
+        <div class="field">
+          <label for="token">Questrade Refresh Token</label>
+          <input id="token" type="password" placeholder="Paste refresh token (never share this!)" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="env">Environment</label>
+          <select id="env">
+            <option value="live">Live</option>
+            <option value="practice">Practice</option>
+          </select>
+        </div>
+        <div class="field" style="align-items:flex-end">
+          <button id="btnUpdate" class="primary">Update</button>
+        </div>
+        <div class="hints">
+          <div class="left">
+            <label class="inline"><input type="checkbox" id="remember"/> Remember token (local only)</label>
+            <button id="btnClear" class="secondary" title="Clear cached token">Clear Saved</button>
+            <span id="tokenLastUpdated" class="muted"></span>
+          </div>
+          <div>USD→CAD rate used: <span id="fxRate" class="mono muted">—</span></div>
+        </div>
+      </div>
+      <div id="status" class="status"><span class="dot idle"></span><span class="muted">Idle</span></div>
+      <div class="table-wrap">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Type</th>
+              <th class="right">CAD Equity</th>
+              <th class="right">USD Equity</th>
+              <th class="right">Total (CAD)</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+          </tbody>
+        </table>
+      </div>
+      <div class="totals">
+        <div class="pill">Total CAD: <span id="sumCad" class="mono">—</span></div>
+        <div class="pill">Total USD: <span id="sumUsd" class="mono">—</span></div>
+        <div class="pill"><strong>Grand Total (CAD): <span id="sumTotal" class="mono">—</span></strong></div>
+      </div>
+      <div class="note">
+        <strong>Notes:</strong>
+        <ul>
+          <li>This page exchanges your <span class="code">refresh_token</span> for a short‑lived access token and calls Questrade’s API directly from your browser.</li>
+          <li>If you see a CORS error, run this page from a local file or behind a simple local proxy. For production, route via your own backend.</li>
+          <li>We treat <em>combinedBalances.totalEquity</em> per currency as the account equity. USD is converted to CAD using the live <em>USD.CAD</em> quote from Questrade.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const el = (id) => document.getElementById(id);
+    const fmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'CAD', maximumFractionDigits: 2 });
+    const fmtUsd = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+
+    const state = {
+      accessToken: null,
+      apiServer: null,
+      usdCad: null,
+    };
+
+    function setStatus(kind, text){
+      const s = el('status');
+      const dot = s.querySelector('.dot');
+      dot.className = 'dot ' + kind;
+      s.lastElementChild.textContent = text;
+    }
+
+    function saveOrLoadToken(){
+      const r = el('remember');
+      if(localStorage.getItem('qtRemember') === '1'){
+        r.checked = true;
+        const t = localStorage.getItem('qtRefreshToken');
+        const lastUpdated = localStorage.getItem('qtTokenLastUpdated');
+        if(t) {
+          el('token').value = t;
+          if(lastUpdated) {
+            const date = new Date(lastUpdated);
+            el('tokenLastUpdated').textContent = `Token last updated: ${date.toLocaleTimeString()}`;
+          }
+        }
+      }
+    }
+
+    function persistToken(newToken){
+      const remember = el('remember').checked;
+      localStorage.setItem('qtRemember', remember? '1':'0');
+      if(remember){
+        localStorage.setItem('qtRefreshToken', newToken || el('token').value);
+        localStorage.setItem('qtTokenLastUpdated', new Date().toISOString());
+      } else {
+        localStorage.removeItem('qtRefreshToken');
+        localStorage.removeItem('qtTokenLastUpdated');
+      }
+      // Update the UI with new token if provided
+      if(newToken) {
+        el('token').value = newToken;
+        const lastUpdated = new Date().toLocaleTimeString();
+        el('tokenLastUpdated').textContent = `Token last updated: ${lastUpdated}`;
+      }
+    }
+
+    async function exchangeRefreshToken(refreshToken, env){
+      // Clean the token - remove any whitespace or newlines
+      refreshToken = refreshToken.trim();
+      
+      const base = env === 'practice' ? '/proxy/practice' : '/proxy/login';
+      const url = `${base}/oauth2/token`;
+      
+      // Log the request details (for debugging)
+      console.log('Token exchange request:', {
+        url,
+        refreshToken: refreshToken.substring(0, 5) + '...',
+        env
+      });
+      
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken
+          })
+        });
+        
+        const responseText = await res.text();
+        console.log('Response status:', res.status);
+        console.log('Response headers:', Object.fromEntries([...res.headers]));
+        
+        if (!res.ok) {
+          console.error('Response text:', responseText);
+          throw new Error(`Token exchange failed (${res.status}): ${responseText}`);
+        }
+        
+        // Try to parse JSON response
+        try {
+          const data = JSON.parse(responseText);
+          return data;
+        } catch (e) {
+          throw new Error(`Invalid JSON response: ${responseText}`);
+        }
+      } catch (error) {
+        if (error.message.includes('Failed to fetch')) {
+          throw new Error('Network error - Make sure you are running this page from a local file (file://) or through a proxy to avoid CORS issues');
+        }
+        throw error;
+      }
+    }
+
+    // Single qtFetch that routes all API calls through the local proxy to avoid CORS
+    async function qtFetch(path, opts = {}){
+      if(!state.apiServer || !state.accessToken) {
+        throw new Error('API server or access token not set. Please update token first.');
+      }
+
+      const payload = {
+        apiServer: state.apiServer,
+        path: path,
+        method: opts.method || 'GET',
+        accessToken: state.accessToken,
+        body: opts.body || undefined
+      };
+
+      console.log('Proxying API call via /proxy/fetch', payload);
+
+      const res = await fetch('/proxy/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const responseText = await res.text();
+      console.log('Proxy response:', { status: res.status, path, response: responseText.substring(0,200) });
+
+      if(!res.ok){
+        throw new Error(`API error ${res.status}: ${responseText}`);
+      }
+
+      try {
+        return JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Invalid JSON response: ${responseText}`);
+      }
+    }
+
+    async function loadUsdCad(){
+      try{
+        const sym = await qtFetch('symbols?names=USD.CAD');
+        const id = sym.symbols?.[0]?.symbolId;
+        if(!id) throw new Error('USD.CAD symbol not found');
+        const q = await qtFetch(`markets/quotes?symbolIds=${id}`);
+        const quote = q.quotes?.[0];
+        let rate = quote?.lastTradePrice;
+        if(!rate){
+          const bid = quote?.bidPrice, ask = quote?.askPrice;
+          if(bid && ask) rate = (bid + ask) / 2;
+        }
+        if(!rate) throw new Error('No quote price for USD.CAD');
+        state.usdCad = rate;
+        el('fxRate').textContent = rate.toFixed(4);
+      }catch(e){
+        state.usdCad = 1.35; // sensible fallback
+        el('fxRate').textContent = `${state.usdCad.toFixed(4)} (fallback)`;
+        console.warn(e);
+      }
+    }
+
+    function renderRows(rows){
+      const tbody = el('tbody');
+      tbody.innerHTML = '';
+      let sumCad = 0, sumUsd = 0, sumTotal = 0;
+      for(const r of rows){
+        const tr = document.createElement('tr');
+        const cad = r.cad ?? 0; const usd = r.usd ?? 0; const totalCad = cad + usd * (state.usdCad || 1);
+        sumCad += cad; sumUsd += usd; sumTotal += totalCad;
+        tr.innerHTML = `
+          <td class="mono">${r.number || '—'}</td>
+          <td>${r.type || ''} <span class="muted">${r.clientAccountType? `· ${r.clientAccountType}`:''}</span></td>
+          <td class="right mono">${cad? fmt.format(cad): '—'}</td>
+          <td class="right mono">${usd? fmtUsd.format(usd): '—'}</td>
+          <td class="right mono">${fmt.format(totalCad)}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+      el('sumCad').textContent = fmt.format(sumCad);
+      el('sumUsd').textContent = fmtUsd.format(sumUsd);
+      el('sumTotal').textContent = fmt.format(sumTotal);
+    }
+
+    async function update(){
+      try{
+        setStatus('loading','Exchanging token & discovering API server…');
+        const refreshToken = el('token').value.trim();
+        const env = el('env').value;
+        if(!refreshToken) throw new Error('Please paste your refresh token.');
+
+        const tokenRes = await exchangeRefreshToken(refreshToken, env);
+        console.log('Token response:', tokenRes);
+        
+        if(!tokenRes.access_token || !tokenRes.api_server) {
+          throw new Error('Invalid token response. Missing access_token or api_server');
+        }
+        
+        state.accessToken = tokenRes.access_token;
+        state.apiServer = tokenRes.api_server;
+        
+        console.log('Updated state:', {
+          apiServer: state.apiServer,
+          accessToken: state.accessToken.substring(0, 5) + '...'
+        });
+        
+        // Save the new refresh token we got from the response
+        if(tokenRes.refresh_token) {
+          persistToken(tokenRes.refresh_token);
+        }
+          // Test the access token with a simple API call
+          try {
+            const testResponse = await qtFetch('accounts');
+            console.log('Test API call successful:', testResponse);
+          } catch (error) {
+            console.error('Test API call failed:', error);
+            throw new Error(`Access token validation failed: ${error.message}`);
+          }
+        setStatus('loading','Fetching USD→CAD rate…');
+        await loadUsdCad();
+
+        setStatus('loading','Retrieving accounts…');
+        const { accounts } = await qtFetch('accounts');
+        const rows = [];
+        for(const a of accounts){
+          setStatus('loading',`Fetching balances for ${a.number}…`);
+          const b = await qtFetch(`accounts/${a.number}/balances`);
+          // Prefer combinedBalances (aggregate across positions & cash) per currency
+          let cad = 0, usd = 0;
+          if(Array.isArray(b.combinedBalances)){
+            for(const cb of b.combinedBalances){
+              if(cb.currency === 'CAD') cad = (cb.totalEquity ?? 0);
+              if(cb.currency === 'USD') usd = (cb.totalEquity ?? 0);
+            }
+          }
+          rows.push({number:a.number, type:a.type, clientAccountType:a.clientAccountType, cad, usd});
+        }
+        renderRows(rows);
+        setStatus('ok','Done. Balances updated.');
+      }catch(err){
+        console.error(err);
+        setStatus('err', `Error: ${err.message || err}`);
+      }
+    }
+
+    el('btnUpdate').addEventListener('click', update);
+    el('btnClear').addEventListener('click', () => {
+      localStorage.removeItem('qtRefreshToken');
+      localStorage.removeItem('qtRemember');
+      el('token').value = '';
+      el('remember').checked = false;
+    });
+
+    saveOrLoadToken();
+  </script>
+</body>
+</html>
