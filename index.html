@@ -143,18 +143,22 @@
       s.lastElementChild.textContent = text;
     }
 
-    function saveOrLoadToken(){
+    async function saveOrLoadToken(){
       const r = el('remember');
       if(localStorage.getItem('qtRemember') === '1'){
         r.checked = true;
         const t = localStorage.getItem('qtRefreshToken');
         const lastUpdated = localStorage.getItem('qtTokenLastUpdated');
+        const env = localStorage.getItem('qtEnvironment') || 'live';
         if(t) {
           el('token').value = t;
+          el('env').value = env;
           if(lastUpdated) {
             const date = new Date(lastUpdated);
             el('tokenLastUpdated').textContent = `Token last updated: ${date.toLocaleTimeString()}`;
           }
+          // Automatically refresh token on page load if saved
+          await updateToken();
         }
       }
     }
@@ -165,9 +169,11 @@
       if(remember){
         localStorage.setItem('qtRefreshToken', newToken || el('token').value);
         localStorage.setItem('qtTokenLastUpdated', new Date().toISOString());
+        localStorage.setItem('qtEnvironment', el('env').value);
       } else {
         localStorage.removeItem('qtRefreshToken');
         localStorage.removeItem('qtTokenLastUpdated');
+        localStorage.removeItem('qtEnvironment');
       }
       // Update the UI with new token if provided
       if(newToken) {
@@ -373,8 +379,14 @@
     el('btnClear').addEventListener('click', () => {
       localStorage.removeItem('qtRefreshToken');
       localStorage.removeItem('qtRemember');
+      localStorage.removeItem('qtEnvironment');
       el('token').value = '';
       el('remember').checked = false;
+    });
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', async () => {
+      await saveOrLoadToken();
     });
 
     saveOrLoadToken();
