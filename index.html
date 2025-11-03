@@ -78,7 +78,7 @@
           <label for="env">Environment</label>
           <select id="env">
             <option value="live">Live</option>
-            <option value="practice">Practice</option>
+            <option value="practice" disabled title="Practice environment temporarily unavailable">Practice (Currently Unavailable)</option>
           </select>
         </div>
         <div class="field" style="align-items:flex-end">
@@ -102,7 +102,6 @@
               <th>Type</th>
               <th class="right">CAD Equity</th>
               <th class="right">USD Equity</th>
-              <th class="right">Total (CAD)</th>
             </tr>
           </thead>
           <tbody id="tbody">
@@ -112,7 +111,6 @@
       <div class="totals">
         <div class="pill">Total CAD: <span id="sumCad" class="mono">—</span></div>
         <div class="pill">Total USD: <span id="sumUsd" class="mono">—</span></div>
-        <div class="pill"><strong>Grand Total (CAD): <span id="sumTotal" class="mono">—</span></strong></div>
       </div>
       <div class="note">
         <strong>Notes:</strong>
@@ -295,23 +293,21 @@
     function renderRows(rows){
       const tbody = el('tbody');
       tbody.innerHTML = '';
-      let sumCad = 0, sumUsd = 0, sumTotal = 0;
+      let sumCad = 0, sumUsd = 0;
       for(const r of rows){
         const tr = document.createElement('tr');
-        const cad = r.cad ?? 0; const usd = r.usd ?? 0; const totalCad = cad + usd * (state.usdCad || 1);
-        sumCad += cad; sumUsd += usd; sumTotal += totalCad;
+        const cad = r.cad ?? 0; const usd = r.usd ?? 0;
+        sumCad += cad; sumUsd += usd;
         tr.innerHTML = `
           <td class="mono">${r.number || '—'}</td>
           <td>${r.type || ''} <span class="muted">${r.clientAccountType? `· ${r.clientAccountType}`:''}</span></td>
           <td class="right mono">${cad? fmt.format(cad): '—'}</td>
           <td class="right mono">${usd? fmtUsd.format(usd): '—'}</td>
-          <td class="right mono">${fmt.format(totalCad)}</td>
         `;
         tbody.appendChild(tr);
       }
       el('sumCad').textContent = fmt.format(sumCad);
       el('sumUsd').textContent = fmtUsd.format(sumUsd);
-      el('sumTotal').textContent = fmt.format(sumTotal);
     }
 
     async function update(){
