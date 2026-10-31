@@ -52,8 +52,9 @@ The server will start running at `http://localhost:8080`
 
 ## Security Notes
 
-- Never share your API key
-- The server includes CORS protection
+- Never share or commit your API key; never paste it into issues or chat
+- The server binds to `127.0.0.1` only, serves just the `public/` folder, rejects cross-origin requests, and proxies only read-only GET requests to Questrade hosts. Do not host it publicly.
+- With "Remember token" checked, the token is kept in `sessionStorage` (cleared when the tab closes)
 - API keys should be regenerated periodically for security
 - Keys from the practice environment cannot be used in the live environment and vice versa
 
