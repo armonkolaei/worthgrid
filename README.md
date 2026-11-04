@@ -1,6 +1,6 @@
 # Worth Grid
 
-**A self-hostable alternative to Walthica for tracking your net worth.**
+**A self-hostable alternative to Wealthica for tracking your net worth.**
 
 Worth Grid brings your assets, liabilities, and connected brokerage accounts into one personal dashboard. Track changes over time, organize accounts into groups, and keep a copy of your portfolio data with CSV export.
 
