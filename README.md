@@ -4,6 +4,8 @@
 
 Worth Grid brings your assets, liabilities, and connected brokerage accounts into one personal dashboard. Track changes over time, organize accounts into groups, and keep a copy of your portfolio data with CSV export.
 
+Worth Grid is open source under the [MIT License](./LICENSE). You can use, modify, and redistribute it under the terms of that license.
+
 > Worth Grid is an independent project and is not affiliated with Walthica or Questrade.
 
 [OpenAltMarket.com](https://openaltmarket.com) — explore options to open, deploy, and customize Worth Grid.
@@ -26,7 +28,7 @@ Questrade is the only live institution integration currently included. Other con
 - Node.js 20+
 - Express API
 - MongoDB (or a compatible MongoDB service)
-- Vercel serverless deployment, with a daily scheduled sync
+- One-click deployment through [Open Alternative Market](https://openaltmarket.com)
 
 ## Run locally
 
@@ -89,42 +91,26 @@ All five variables used by the local `.env` are included in [`.env.example`](./.
 | `MONGODB_DB` | No | Database name. Defaults to `worthgrid-db`. |
 | `JWT_SECRET` | Yes | Private signing secret for login sessions; must be at least 32 characters. |
 | `ENCRYPTION_KEY` | Yes | Base64-encoded 32-byte key used to encrypt saved brokerage credentials. Generate it with the second command above. Keep it safe and stable: changing or losing it makes existing saved connections unreadable, so users will need to reconnect. |
-| `CRON_SECRET` | For scheduled sync | Secret used to protect `/api/cron/sync`. Vercel Cron calls this endpoint for the daily sync. |
+| `CRON_SECRET` | For scheduled sync | Secret used to protect the `/api/cron/sync` endpoint. Keep it private. |
 
 Use your own generated secrets in every environment. Do not copy secret values from another installation or check them into source control.
 
-## Deploy to Vercel
+## Deploy with Open Alternative Market
 
-Vercel is the deployment target configured in this repository.
+Open Alternative Market makes deploying Worth Grid a short, guided flow:
 
-1. Create a MongoDB database and a database user with access to it. Copy the provider's connection URI and ensure the deployed application can reach the database.
-2. In Vercel, import the GitHub repository [`armonkolaei/worthgrid`](https://github.com/armonkolaei/worthgrid).
-3. Configure the project with the repository root as its root directory. The checked-in `vercel.json` supplies the build command (`npm run build`), output directory (`dist`), API function, rewrites, and daily sync schedule.
-4. In the Vercel project's **Settings → Environment Variables**, add:
-   - `MONGODB_URI`
-   - `MONGODB_DB` (optional; defaults to `worthgrid-db`)
-   - `JWT_SECRET`
-   - `ENCRYPTION_KEY`
-   - `CRON_SECRET`
-
-   Generate fresh secret values using the commands in [Run locally](#run-locally). Add them to the production environment (and preview/development environments if you use those), not to the repository.
-5. Deploy. Visit the deployed site, create an account, and verify that it can read and write to MongoDB.
-6. Optionally connect Questrade using a read-only token. Confirm that the deployment's scheduled daily sync is enabled in the Vercel project.
-
-Vercel sets `NODE_ENV` for production deployments. The app uses it to set secure session cookies.
-
-## Deploy to Kubeify or another Node host
-
-This repository currently includes Vercel deployment configuration, but not a standalone production server command for a general-purpose Node/container host. `npm run dev` is for local development and should not be used as a production start command.
-
-For a Kubeify deployment, first confirm that the platform can run a Node.js 20+ service and serve the Vite build while routing `/api/*` requests to the Express API. That production server/adapter is not included yet. The same environment variables above will be needed; scheduled syncing also requires the host's scheduler to call `/api/cron/sync` with the configured `CRON_SECRET`.
+1. Visit [openaltmarket.com](https://openaltmarket.com) and choose Worth Grid.
+2. Select the Worth Grid GitHub repository: [`armonkolaei/worthgrid`](https://github.com/armonkolaei/worthgrid).
+3. Click the deploy button. Open Alternative Market handles the application deployment.
+4. Add the environment variables listed in [Environment variables](#environment-variables) in the deployment's environment settings. Create your own MongoDB URI and generate fresh values for `JWT_SECRET`, `ENCRYPTION_KEY`, and `CRON_SECRET` using the commands in [Run locally](#run-locally). Do not reuse another installation's secrets.
+5. Save the environment settings and finish deployment. Open your deployed Worth Grid, create an account, and start adding accounts or connect Questrade.
 
 ## Connecting Questrade
 
 1. In Questrade, open the API Centre and register a personal app.
 2. Enable only read-only permissions for account balances and positions. Do not enable trading.
 3. Generate a token, then in Worth Grid choose **Add → Banks & Brokerages** and follow the connection steps.
-4. Use **Sync** to refresh manually. Vercel deployments also schedule a daily refresh.
+4. Use **Sync** to refresh manually. The app also supports scheduled synchronization when enabled by the deployment platform.
 
 ## Security notes
 
